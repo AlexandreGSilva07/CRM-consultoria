@@ -1,6 +1,6 @@
 {
   "name": "crm-consultoria",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,6 +8,10 @@
     "start": "next start"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-select": "latest",
+    "geist": "latest",
+    "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"

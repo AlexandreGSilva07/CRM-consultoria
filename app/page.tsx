@@ -1,305 +1,641 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import {
+  Activity as ActivityIcon,
+  ArrowRight,
+  BarChart3,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  Clock3,
+  Columns3,
+  GripVertical,
+  LayoutDashboard,
+  Mail,
+  MessageCircle,
+  Phone,
+  Plus,
+  Search,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
+} from "lucide-react";
+import { Avatar, Badge, Button, Modal, Select } from "@/components/ui";
+import {
+  ActivityType,
+  Client,
+  Stage,
+  consultants,
+  initialClients,
+  sources,
+  stageProbability,
+  stages,
+} from "@/lib/crm-data";
 
-type Stage = "Novo lead" | "Qualificação" | "Diagnóstico" | "Proposta" | "Negociação" | "Fechado";
-type ActivityType = "Ligação" | "WhatsApp" | "E-mail" | "Reunião" | "Observação";
-
-type Activity = {
-  id: number;
-  type: ActivityType;
-  content: string;
-  result: string;
-  date: string;
-};
-
-type Client = {
-  id: number;
-  company: string;
-  contact: string;
-  email: string;
-  phone: string;
-  value: number;
-  stage: Stage;
-  consultant: string;
-  source: string;
-  nextAction: string;
-  notes: string;
-  activities: Activity[];
-};
-
-const stages: Stage[] = ["Novo lead", "Qualificação", "Diagnóstico", "Proposta", "Negociação", "Fechado"];
-const consultants = ["Ana Costa", "Bruno Lima", "Carla Mendes", "Diego Alves"];
-
-const initialClients: Client[] = [
-  {
-    id: 1,
-    company: "Grupo Horizonte",
-    contact: "Marina Azevedo",
-    email: "marina@horizonte.com.br",
-    phone: "(65) 99912-4401",
-    value: 48000,
-    stage: "Proposta",
-    consultant: "Ana Costa",
-    source: "Indicação",
-    nextAction: "Revisar proposta executiva",
-    notes: "Projeto de reorganização financeira e governança.",
-    activities: [
-      { id: 11, type: "Reunião", content: "Diagnóstico com diretoria financeira.", result: "Escopo validado e orçamento solicitado.", date: "18/09/2026 14:30" },
-      { id: 12, type: "WhatsApp", content: "Envio do resumo do diagnóstico.", result: "Cliente confirmou recebimento.", date: "19/09/2026 10:10" },
-    ],
-  },
-  {
-    id: 2,
-    company: "AgroVale Participações",
-    contact: "Henrique Moura",
-    email: "henrique@agrovale.com.br",
-    phone: "(66) 99880-1188",
-    value: 78000,
-    stage: "Negociação",
-    consultant: "Bruno Lima",
-    source: "Evento",
-    nextAction: "Negociar cronograma de implantação",
-    notes: "Maior sensibilidade está no prazo, não no preço.",
-    activities: [
-      { id: 21, type: "Ligação", content: "Follow-up da proposta.", result: "Solicitou início em novembro.", date: "17/09/2026 16:20" },
-    ],
-  },
-  {
-    id: 3,
-    company: "Clínica Integra",
-    contact: "Patrícia Rocha",
-    email: "patricia@clinicaintegra.com.br",
-    phone: "(65) 99221-7780",
-    value: 22000,
-    stage: "Qualificação",
-    consultant: "Carla Mendes",
-    source: "Site",
-    nextAction: "Confirmar faturamento e equipe",
-    notes: "Busca estruturação comercial e indicadores.",
-    activities: [],
-  },
-  {
-    id: 4,
-    company: "Norte Logística",
-    contact: "Lucas Freitas",
-    email: "lucas@nortelog.com.br",
-    phone: "(65) 99770-3321",
-    value: 35000,
-    stage: "Diagnóstico",
-    consultant: "Diego Alves",
-    source: "LinkedIn",
-    nextAction: "Reunião de diagnóstico operacional",
-    notes: "Lead com urgência por expansão para nova unidade.",
-    activities: [
-      { id: 41, type: "E-mail", content: "Envio de questionário pré-diagnóstico.", result: "Questionário respondido.", date: "16/09/2026 09:05" },
-    ],
-  },
-  {
-    id: 5,
-    company: "Matriz Engenharia",
-    contact: "Rafael Nunes",
-    email: "rafael@matrizeng.com.br",
-    phone: "(65) 99602-1110",
-    value: 64000,
-    stage: "Fechado",
-    consultant: "Ana Costa",
-    source: "Cliente antigo",
-    nextAction: "Kickoff do projeto",
-    notes: "Contrato aprovado para 6 meses.",
-    activities: [
-      { id: 51, type: "Ligação", content: "Confirmação final do contrato.", result: "Aprovado sem ressalvas.", date: "15/09/2026 11:40" },
-    ],
-  },
-  {
-    id: 6,
-    company: "Ativa Distribuição",
-    contact: "Camila Farias",
-    email: "camila@ativa.com.br",
-    phone: "(65) 99190-2010",
-    value: 18000,
-    stage: "Novo lead",
-    consultant: "Bruno Lima",
-    source: "Instagram",
-    nextAction: "Primeiro contato",
-    notes: "Solicitou contato após ver conteúdo sobre processos.",
-    activities: [],
-  },
-];
+const TODAY = "2026-09-19";
 
 const money = (value: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const shortDate = (value: string) =>
+  new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
+    new Date(`${value}T12:00:00`),
+  );
+
+const stageTone: Record<Stage, "neutral" | "brand" | "warning" | "success"> = {
+  "Novo lead": "neutral",
+  Qualificação: "brand",
+  Diagnóstico: "brand",
+  Proposta: "warning",
+  Negociação: "warning",
+  Fechado: "success",
+};
+
+const activityIcons: Record<ActivityType, typeof Phone> = {
+  Ligação: Phone,
+  WhatsApp: MessageCircle,
+  "E-mail": Mail,
+  Reunião: Users,
+  Observação: ActivityIcon,
+};
 
 export default function Home() {
   const [clients, setClients] = useState<Client[]>(initialClients);
-  const [selected, setSelected] = useState<Client | null>(null);
-  const [showNewClient, setShowNewClient] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [consultantFilter, setConsultantFilter] = useState("Todos");
+  const [sourceFilter, setSourceFilter] = useState("Todas");
+  const [newConsultant, setNewConsultant] = useState(consultants[0]);
+  const [newSource, setNewSource] = useState(sources[0]);
   const [activityType, setActivityType] = useState<ActivityType>("Ligação");
   const [activityContent, setActivityContent] = useState("");
   const [activityResult, setActivityResult] = useState("");
 
+  const selected = clients.find((client) => client.id === selectedId) ?? null;
+
+  const filteredClients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return clients.filter((client) => {
+      const matchesSearch =
+        !query ||
+        [client.company, client.contact, client.segment, client.consultant]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesConsultant =
+        consultantFilter === "Todos" || client.consultant === consultantFilter;
+      const matchesSource = sourceFilter === "Todas" || client.source === sourceFilter;
+      return matchesSearch && matchesConsultant && matchesSource;
+    });
+  }, [clients, search, consultantFilter, sourceFilter]);
+
   const stats = useMemo(() => {
-    const pipeline = clients.filter((c) => c.stage !== "Fechado").reduce((sum, c) => sum + c.value, 0);
-    const won = clients.filter((c) => c.stage === "Fechado").reduce((sum, c) => sum + c.value, 0);
-    const proposals = clients.filter((c) => ["Proposta", "Negociação"].includes(c.stage)).length;
-    return { pipeline, won, proposals, clients: clients.length };
+    const open = clients.filter((client) => client.stage !== "Fechado");
+    const pipeline = open.reduce((sum, client) => sum + client.value, 0);
+    const forecast = open.reduce(
+      (sum, client) => sum + client.value * (client.probability / 100),
+      0,
+    );
+    const won = clients
+      .filter((client) => client.stage === "Fechado")
+      .reduce((sum, client) => sum + client.value, 0);
+    const wonCount = clients.filter((client) => client.stage === "Fechado").length;
+    const conversion = clients.length ? Math.round((wonCount / clients.length) * 100) : 0;
+    const overdue = open.filter((client) => client.nextActionDate < TODAY).length;
+    return { pipeline, forecast, won, conversion, overdue };
   }, [clients]);
 
+  function updateClient(id: number, patch: Partial<Client>) {
+    setClients((current) =>
+      current.map((client) => (client.id === id ? { ...client, ...patch } : client)),
+    );
+  }
+
   function moveClient(id: number, stage: Stage) {
-    setClients((current) => current.map((client) => (client.id === id ? { ...client, stage } : client)));
-    setSelected((current) => (current?.id === id ? { ...current, stage } : current));
+    updateClient(id, { stage, probability: stageProbability[stage] });
+  }
+
+  function onDrop(event: React.DragEvent, stage: Stage) {
+    event.preventDefault();
+    const id = Number(event.dataTransfer.getData("text/client-id"));
+    if (id) moveClient(id, stage);
   }
 
   function createClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const closeDate = String(data.get("expectedClose"));
     const client: Client = {
       id: Date.now(),
       company: String(data.get("company")),
+      segment: String(data.get("segment")),
       contact: String(data.get("contact")),
+      role: String(data.get("role")),
       email: String(data.get("email")),
       phone: String(data.get("phone")),
       value: Number(data.get("value")),
       stage: "Novo lead",
-      consultant: String(data.get("consultant")),
-      source: String(data.get("source")),
-      nextAction: "Realizar primeiro contato",
+      probability: 10,
+      consultant: newConsultant,
+      source: newSource,
+      nextAction: String(data.get("nextAction")) || "Realizar primeiro contato",
+      nextActionDate: String(data.get("nextActionDate")),
+      expectedClose: closeDate,
       notes: String(data.get("notes")),
       activities: [],
     };
+
     setClients((current) => [client, ...current]);
-    setShowNewClient(false);
+    form.reset();
+    setNewClientOpen(false);
   }
 
-  function addActivity(event: FormEvent) {
+  function addActivity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selected || !activityContent.trim()) return;
-    const activity: Activity = {
+
+    const activity = {
       id: Date.now(),
       type: activityType,
-      content: activityContent,
-      result: activityResult || "Sem resultado informado",
+      content: activityContent.trim(),
+      result: activityResult.trim() || "Sem resultado informado",
       date: new Date().toLocaleString("pt-BR"),
     };
-    const updated = { ...selected, activities: [activity, ...selected.activities] };
-    setClients((current) => current.map((client) => (client.id === updated.id ? updated : client)));
-    setSelected(updated);
+
+    updateClient(selected.id, {
+      activities: [activity, ...selected.activities],
+    });
     setActivityContent("");
     setActivityResult("");
   }
 
+  const nav = [
+    { label: "Visão geral", icon: LayoutDashboard },
+    { label: "Pipeline", icon: Columns3, active: true },
+    { label: "Clientes", icon: Building2 },
+    { label: "Atividades", icon: ActivityIcon },
+    { label: "Relatórios", icon: BarChart3 },
+  ];
+
   return (
-    <main>
-      <header className="topbar">
-        <div>
-          <div className="eyebrow">NEXO CONSULTORIA</div>
-          <h1>Pipeline comercial</h1>
-          <p>Clientes, oportunidades e relacionamento em uma única visão.</p>
-        </div>
-        <button className="primary" onClick={() => setShowNewClient(true)}>+ Novo cliente</button>
-      </header>
-
-      <section className="stats">
-        <div className="stat"><span>Pipeline aberto</span><strong>{money(stats.pipeline)}</strong><small>Potencial em negociação</small></div>
-        <div className="stat"><span>Receita fechada</span><strong>{money(stats.won)}</strong><small>Negócios ganhos</small></div>
-        <div className="stat"><span>Propostas ativas</span><strong>{stats.proposals}</strong><small>Proposta + negociação</small></div>
-        <div className="stat"><span>Oportunidades</span><strong>{stats.clients}</strong><small>Total no funil</small></div>
-      </section>
-
-      <section className="kanban">
-        {stages.map((stage) => {
-          const stageClients = clients.filter((client) => client.stage === stage);
-          const total = stageClients.reduce((sum, client) => sum + client.value, 0);
-          return (
-            <div className="column" key={stage}>
-              <div className="columnHead">
-                <div><span className="dot" /><b>{stage}</b><em>{stageClients.length}</em></div>
-                <small>{money(total)}</small>
-              </div>
-              <div className="cards">
-                {stageClients.map((client) => (
-                  <article className="card" key={client.id} onClick={() => setSelected(client)}>
-                    <div className="cardTop"><span>{client.source}</span><b>{money(client.value)}</b></div>
-                    <h3>{client.company}</h3>
-                    <p>{client.contact}</p>
-                    <div className="cardMeta"><span className="avatar">{client.consultant.charAt(0)}</span>{client.consultant}</div>
-                    <div className="nextAction">Próxima ação: {client.nextAction}</div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      {showNewClient && (
-        <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowNewClient(false)}>
-          <form className="modal formModal" onSubmit={createClient}>
-            <div className="modalHead"><div><span className="eyebrow">NOVA OPORTUNIDADE</span><h2>Cadastrar cliente</h2></div><button type="button" className="iconButton" onClick={() => setShowNewClient(false)}>×</button></div>
-            <div className="formGrid">
-              <label>Empresa<input required name="company" placeholder="Ex.: Alpha Consultoria" /></label>
-              <label>Contato<input required name="contact" placeholder="Nome do responsável" /></label>
-              <label>E-mail<input required type="email" name="email" placeholder="contato@empresa.com" /></label>
-              <label>Telefone<input name="phone" placeholder="(65) 99999-9999" /></label>
-              <label>Valor estimado<input required type="number" name="value" min="0" placeholder="35000" /></label>
-              <label>Origem<select name="source"><option>Indicação</option><option>Site</option><option>LinkedIn</option><option>Instagram</option><option>Evento</option><option>Prospecção ativa</option></select></label>
-              <label className="wide">Consultor responsável<select name="consultant">{consultants.map((name) => <option key={name}>{name}</option>)}</select></label>
-              <label className="wide">Observações<textarea name="notes" rows={3} placeholder="Contexto inicial, necessidade, urgência..." /></label>
-            </div>
-            <div className="modalActions"><button type="button" className="secondary" onClick={() => setShowNewClient(false)}>Cancelar</button><button className="primary">Cadastrar oportunidade</button></div>
-          </form>
-        </div>
-      )}
-
-      {selected && (
-        <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal detailModal">
-            <div className="modalHead">
-              <div><span className="eyebrow">{selected.stage.toUpperCase()}</span><h2>{selected.company}</h2><p>{selected.contact} · {selected.email}</p></div>
-              <button className="iconButton" onClick={() => setSelected(null)}>×</button>
-            </div>
-
-            <div className="detailGrid">
-              <section>
-                <h4>Informações comerciais</h4>
-                <div className="infoGrid">
-                  <div><span>Valor</span><b>{money(selected.value)}</b></div>
-                  <div><span>Consultor</span><b>{selected.consultant}</b></div>
-                  <div><span>Origem</span><b>{selected.source}</b></div>
-                  <div><span>Telefone</span><b>{selected.phone}</b></div>
-                </div>
-                <label className="stageSelect">Etapa do funil<select value={selected.stage} onChange={(e) => moveClient(selected.id, e.target.value as Stage)}>{stages.map((stage) => <option key={stage}>{stage}</option>)}</select></label>
-                <div className="noteBox"><span>Observações</span><p>{selected.notes || "Nenhuma observação registrada."}</p></div>
-
-                <form className="activityForm" onSubmit={addActivity}>
-                  <div className="sectionTitle"><h4>Registrar interação</h4><span>Histórico comercial</span></div>
-                  <div className="activityFields">
-                    <select value={activityType} onChange={(e) => setActivityType(e.target.value as ActivityType)}>
-                      <option>Ligação</option><option>WhatsApp</option><option>E-mail</option><option>Reunião</option><option>Observação</option>
-                    </select>
-                    <textarea required value={activityContent} onChange={(e) => setActivityContent(e.target.value)} placeholder="O que foi conversado?" rows={3} />
-                    <input value={activityResult} onChange={(e) => setActivityResult(e.target.value)} placeholder="Resultado / próximo passo" />
-                  </div>
-                  <button className="primary">Registrar interação</button>
-                </form>
-              </section>
-
-              <aside>
-                <div className="sectionTitle"><h4>Histórico</h4><span>{selected.activities.length} registros</span></div>
-                <div className="timeline">
-                  {selected.activities.length === 0 && <div className="empty">Nenhuma interação registrada ainda.</div>}
-                  {selected.activities.map((activity) => (
-                    <div className="timelineItem" key={activity.id}>
-                      <span className="timelineIcon">{activity.type.charAt(0)}</span>
-                      <div><div className="timelineTop"><b>{activity.type}</b><small>{activity.date}</small></div><p>{activity.content}</p><em>{activity.result}</em></div>
-                    </div>
-                  ))}
-                </div>
-              </aside>
-            </div>
+    <div className="appShell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brandMark">N</div>
+          <div>
+            <strong>Nexo CRM</strong>
+            <span>Consultoria</span>
           </div>
         </div>
-      )}
-    </main>
+
+        <nav className="sideNav">
+          <span className="navSection">Workspace</span>
+          {nav.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button className={item.active ? "navItem navItem--active" : "navItem"} key={item.label}>
+                <Icon size={17} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="sidebarFooter">
+          <div className="workspaceCard">
+            <Sparkles size={16} />
+            <div>
+              <strong>MVP Comercial</strong>
+              <span>Dados demonstrativos</span>
+            </div>
+          </div>
+          <button className="navItem">
+            <Settings size={17} />
+            Configurações
+          </button>
+        </div>
+      </aside>
+
+      <main className="workspace">
+        <header className="topbar">
+          <div>
+            <span className="eyebrow">COMERCIAL / PIPELINE</span>
+            <h1>Pipeline de vendas</h1>
+            <p>Acompanhe oportunidades, previsão de receita e próximos passos.</p>
+          </div>
+          <div className="topbarActions">
+            <Button variant="secondary">
+              <CalendarDays size={16} />
+              Atividades
+            </Button>
+            <Button onClick={() => setNewClientOpen(true)}>
+              <Plus size={16} />
+              Nova oportunidade
+            </Button>
+          </div>
+        </header>
+
+        <section className="metrics">
+          <div className="metricCard">
+            <div className="metricIcon"><CircleDollarSign size={18} /></div>
+            <div className="metricCopy"><span>Pipeline aberto</span><strong>{money(stats.pipeline)}</strong><small>Valor total em negociação</small></div>
+          </div>
+          <div className="metricCard">
+            <div className="metricIcon metricIcon--brand"><TrendingUp size={18} /></div>
+            <div className="metricCopy"><span>Forecast ponderado</span><strong>{money(stats.forecast)}</strong><small>Valor x probabilidade</small></div>
+          </div>
+          <div className="metricCard">
+            <div className="metricIcon metricIcon--success"><Trophy size={18} /></div>
+            <div className="metricCopy"><span>Receita fechada</span><strong>{money(stats.won)}</strong><small>Conversão atual: {stats.conversion}%</small></div>
+          </div>
+          <div className="metricCard">
+            <div className={stats.overdue ? "metricIcon metricIcon--danger" : "metricIcon"}><Clock3 size={18} /></div>
+            <div className="metricCopy"><span>Ações vencidas</span><strong>{stats.overdue}</strong><small>{stats.overdue ? "Requer atenção comercial" : "Agenda em dia"}</small></div>
+          </div>
+        </section>
+
+        <section className="pipelinePanel">
+          <div className="toolbar">
+            <div className="searchBox">
+              <Search size={16} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar empresa, contato ou segmento..."
+              />
+            </div>
+
+            <div className="filters">
+              <SlidersHorizontal size={15} />
+              <Select
+                value={consultantFilter}
+                onValueChange={setConsultantFilter}
+                ariaLabel="Filtrar por consultor"
+                options={[
+                  { value: "Todos", label: "Todos os consultores" },
+                  ...consultants.map((name) => ({ value: name, label: name })),
+                ]}
+              />
+              <Select
+                value={sourceFilter}
+                onValueChange={setSourceFilter}
+                ariaLabel="Filtrar por origem"
+                options={[
+                  { value: "Todas", label: "Todas as origens" },
+                  ...sources.map((source) => ({ value: source, label: source })),
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="kanban">
+            {stages.map((stage) => {
+              const stageClients = filteredClients.filter((client) => client.stage === stage);
+              const total = stageClients.reduce((sum, client) => sum + client.value, 0);
+
+              return (
+                <section
+                  className="kanbanColumn"
+                  key={stage}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => onDrop(event, stage)}
+                >
+                  <div className="columnHeader">
+                    <div className="columnTitle">
+                      <span className={`stageDot stageDot--${stages.indexOf(stage)}`} />
+                      <strong>{stage}</strong>
+                      <span className="countPill">{stageClients.length}</span>
+                    </div>
+                    <span>{money(total)}</span>
+                  </div>
+
+                  <div className="cardStack">
+                    {stageClients.map((client) => {
+                      const overdue =
+                        client.stage !== "Fechado" && client.nextActionDate < TODAY;
+
+                      return (
+                        <article
+                          draggable
+                          className="dealCard"
+                          key={client.id}
+                          onDragStart={(event) =>
+                            event.dataTransfer.setData("text/client-id", String(client.id))
+                          }
+                          onClick={() => setSelectedId(client.id)}
+                        >
+                          <div className="dealTop">
+                            <div className="dealCompany">
+                              <GripVertical className="dragHandle" size={14} />
+                              <div>
+                                <h3>{client.company}</h3>
+                                <span>{client.segment}</span>
+                              </div>
+                            </div>
+                            <Badge tone={client.probability >= 80 ? "success" : client.probability >= 60 ? "warning" : "neutral"}>
+                              {client.probability}%
+                            </Badge>
+                          </div>
+
+                          <div className="dealValue">{money(client.value)}</div>
+
+                          <div className="dealMeta">
+                            <div className="consultant">
+                              <Avatar name={client.consultant} small />
+                              <span>{client.consultant}</span>
+                            </div>
+                            <span className="sourcePill">{client.source}</span>
+                          </div>
+
+                          <div className={overdue ? "nextStep nextStep--overdue" : "nextStep"}>
+                            <Clock3 size={13} />
+                            <div>
+                              <span>{client.nextAction}</span>
+                              <small>{overdue ? "Vencido" : shortDate(client.nextActionDate)}</small>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+
+                    {stageClients.length === 0 ? (
+                      <div className="emptyColumn">
+                        <Target size={17} />
+                        <span>Solte uma oportunidade aqui</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+
+      <Modal
+        open={newClientOpen}
+        onOpenChange={setNewClientOpen}
+        title="Nova oportunidade"
+        subtitle="Cadastre um lead e já deixe o próximo passo definido."
+      >
+        <form className="form" onSubmit={createClient}>
+          <div className="formSection">
+            <div className="formSectionTitle">Empresa e contato</div>
+            <div className="formGrid">
+              <label className="field">
+                <span>Empresa</span>
+                <input required name="company" placeholder="Ex.: Alpha Participações" />
+              </label>
+              <label className="field">
+                <span>Segmento</span>
+                <input required name="segment" placeholder="Ex.: Agronegócio" />
+              </label>
+              <label className="field">
+                <span>Contato principal</span>
+                <input required name="contact" placeholder="Nome do contato" />
+              </label>
+              <label className="field">
+                <span>Cargo</span>
+                <input required name="role" placeholder="Ex.: Diretor Financeiro" />
+              </label>
+              <label className="field">
+                <span>E-mail</span>
+                <input required type="email" name="email" placeholder="contato@empresa.com" />
+              </label>
+              <label className="field">
+                <span>Telefone</span>
+                <input name="phone" placeholder="(65) 99999-9999" />
+              </label>
+            </div>
+          </div>
+
+          <div className="formSection">
+            <div className="formSectionTitle">Oportunidade comercial</div>
+            <div className="formGrid">
+              <label className="field">
+                <span>Valor estimado</span>
+                <input required type="number" name="value" min="0" placeholder="35000" />
+              </label>
+              <label className="field">
+                <span>Fechamento previsto</span>
+                <input required type="date" name="expectedClose" defaultValue="2026-10-15" />
+              </label>
+              <div className="field">
+                <span>Consultor responsável</span>
+                <Select
+                  value={newConsultant}
+                  onValueChange={setNewConsultant}
+                  options={consultants.map((name) => ({ value: name, label: name }))}
+                />
+              </div>
+              <div className="field">
+                <span>Origem</span>
+                <Select
+                  value={newSource}
+                  onValueChange={setNewSource}
+                  options={sources.map((source) => ({ value: source, label: source }))}
+                />
+              </div>
+              <label className="field field--wide">
+                <span>Próxima ação</span>
+                <input required name="nextAction" placeholder="Ex.: Agendar reunião de diagnóstico" />
+              </label>
+              <label className="field">
+                <span>Data da próxima ação</span>
+                <input required type="date" name="nextActionDate" defaultValue="2026-09-22" />
+              </label>
+              <label className="field field--wide">
+                <span>Observações</span>
+                <textarea name="notes" rows={3} placeholder="Contexto, dor principal, urgência, decisores..." />
+              </label>
+            </div>
+          </div>
+
+          <div className="formActions">
+            <Button type="button" variant="secondary" onClick={() => setNewClientOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit">
+              <Plus size={16} />
+              Criar oportunidade
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {selected ? (
+        <Modal
+          open={Boolean(selected)}
+          onOpenChange={(open) => !open && setSelectedId(null)}
+          title={selected.company}
+          subtitle={`${selected.contact} · ${selected.role}`}
+          size="large"
+        >
+          <div className="clientHeaderBar">
+            <div className="clientIdentity">
+              <Avatar name={selected.company} />
+              <div>
+                <div className="clientBadges">
+                  <Badge tone={stageTone[selected.stage]}>{selected.stage}</Badge>
+                  <Badge>{selected.segment}</Badge>
+                </div>
+                <span>{selected.email} · {selected.phone}</span>
+              </div>
+            </div>
+            <div className="quickActions">
+              <a className="iconAction" href={`tel:${selected.phone}`} title="Ligar"><Phone size={16} /></a>
+              <a className="iconAction" href={`mailto:${selected.email}`} title="Enviar e-mail"><Mail size={16} /></a>
+              <button className="iconAction" title="WhatsApp"><MessageCircle size={16} /></button>
+            </div>
+          </div>
+
+          <div className="detailLayout">
+            <section className="clientMain">
+              <div className="commercialCards">
+                <div><span>Valor</span><strong>{money(selected.value)}</strong><CircleDollarSign size={16} /></div>
+                <div><span>Probabilidade</span><strong>{selected.probability}%</strong><Target size={16} /></div>
+                <div><span>Forecast</span><strong>{money(selected.value * selected.probability / 100)}</strong><TrendingUp size={16} /></div>
+                <div><span>Fechamento</span><strong>{shortDate(selected.expectedClose)}</strong><CalendarDays size={16} /></div>
+              </div>
+
+              <div className="detailSection">
+                <div className="detailSectionHeader">
+                  <div><span className="sectionEyebrow">GESTÃO DA OPORTUNIDADE</span><h3>Dados comerciais</h3></div>
+                </div>
+                <div className="detailControls">
+                  <div className="field">
+                    <span>Etapa do funil</span>
+                    <Select
+                      value={selected.stage}
+                      onValueChange={(value) => moveClient(selected.id, value as Stage)}
+                      options={stages.map((stage) => ({ value: stage, label: stage }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <span>Consultor responsável</span>
+                    <Select
+                      value={selected.consultant}
+                      onValueChange={(value) => updateClient(selected.id, { consultant: value })}
+                      options={consultants.map((name) => ({ value: name, label: name }))}
+                    />
+                  </div>
+                </div>
+
+                <div className={selected.nextActionDate < TODAY && selected.stage !== "Fechado" ? "actionCard actionCard--overdue" : "actionCard"}>
+                  <div className="actionIcon"><Clock3 size={17} /></div>
+                  <div>
+                    <span>Próxima ação</span>
+                    <strong>{selected.nextAction}</strong>
+                    <small>{shortDate(selected.nextActionDate)} · {selected.nextActionDate < TODAY && selected.stage !== "Fechado" ? "Vencida" : "Programada"}</small>
+                  </div>
+                  <Button variant="ghost">
+                    Concluir
+                    <CheckCircle2 size={15} />
+                  </Button>
+                </div>
+
+                <div className="noteCard">
+                  <span>Observações comerciais</span>
+                  <p>{selected.notes || "Nenhuma observação registrada."}</p>
+                </div>
+              </div>
+
+              <div className="detailSection">
+                <div className="detailSectionHeader">
+                  <div><span className="sectionEyebrow">RELACIONAMENTO</span><h3>Registrar interação</h3></div>
+                </div>
+
+                <form className="activityComposer" onSubmit={addActivity}>
+                  <div className="activityTypes">
+                    {(["Ligação", "WhatsApp", "E-mail", "Reunião", "Observação"] as ActivityType[]).map((type) => {
+                      const Icon = activityIcons[type];
+                      return (
+                        <button
+                          type="button"
+                          key={type}
+                          className={activityType === type ? "activityType activityType--active" : "activityType"}
+                          onClick={() => setActivityType(type)}
+                        >
+                          <Icon size={14} />
+                          {type}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <textarea
+                    required
+                    rows={3}
+                    value={activityContent}
+                    onChange={(event) => setActivityContent(event.target.value)}
+                    placeholder="Registre o que foi conversado, objeções e informações relevantes..."
+                  />
+                  <div className="composerFooter">
+                    <input
+                      value={activityResult}
+                      onChange={(event) => setActivityResult(event.target.value)}
+                      placeholder="Resultado / próximo passo"
+                    />
+                    <Button type="submit">
+                      Registrar
+                      <ArrowRight size={15} />
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <aside className="historyPanel">
+              <div className="historyHeader">
+                <div><span className="sectionEyebrow">TIMELINE</span><h3>Histórico</h3></div>
+                <Badge>{selected.activities.length} registros</Badge>
+              </div>
+
+              <div className="timeline">
+                {selected.activities.length === 0 ? (
+                  <div className="timelineEmpty">
+                    <BriefcaseBusiness size={20} />
+                    <strong>Sem interações ainda</strong>
+                    <span>Registre a primeira conversa com este cliente.</span>
+                  </div>
+                ) : null}
+
+                {selected.activities.map((activity) => {
+                  const Icon = activityIcons[activity.type];
+                  return (
+                    <div className="timelineItem" key={activity.id}>
+                      <div className="timelineIcon"><Icon size={15} /></div>
+                      <div className="timelineBody">
+                        <div className="timelineTop">
+                          <strong>{activity.type}</strong>
+                          <span>{activity.date}</span>
+                        </div>
+                        <p>{activity.content}</p>
+                        <div className="timelineResult">
+                          <CheckCircle2 size={13} />
+                          {activity.result}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </aside>
+          </div>
+        </Modal>
+      ) : null}
+    </div>
   );
 }
